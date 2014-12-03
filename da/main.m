@@ -38,14 +38,39 @@ NSPoint getScreenPosition(NSScreen* screen);
 int main(int argc, const char * argv[])
 {
     @autoreleasepool {
-        printInfo();
-        saveArrangement(@"~/Desktop/config.plist");
-        loadArrangement(@"~/Desktop/config.plist");
+        NSArray* args = [[NSProcessInfo processInfo] arguments];
+        if ([args count] == 1 || [args count] > 3) {
+            printHelp();
+            return 1;
+        }
+        if ([args[1] isEqualToString:@"help"]) {
+            printHelp();
+        } else if ([args[1] isEqualToString:@"list"]) {
+            printInfo();
+        } else if ([args[1] isEqualToString:@"save"]) {
+            NSString* filename;
+            if ([args count] == 3) {
+                filename = (NSString*) args[2];
+            } else {
+                filename = @"~/Desktop/ScreenArrangement.plist";
+            }
+            printf("Saving to file: '%s'\n", [filename UTF8String]);
+            saveArrangement(filename);
+        } else if ([args[1] isEqualToString:@"load"]) {
+            NSString* filename;
+            if ([args count] == 3) {
+                filename = (NSString*) args[2];
+            } else {
+                filename = @"~/Desktop/ScreenArrangement.plist";
+            }
+            printf("Loading arrangement from file: '%s'\n", [filename UTF8String]);
+            loadArrangement(filename);
+        }
     }
     return 0;
 }
 
-@implementation NSData (Hex) // Somewhere from StackOverflow
+@implementation NSData (Hex) // From StackOverflow: http://stackoverflow.com/a/9084784
 - (NSString *) hexString
 {
     NSUInteger bytesCount = self.length;
@@ -72,7 +97,23 @@ int main(int argc, const char * argv[])
 // COMMAND LINE
 
 void printHelp() {
-    
+    NSString* helpText =
+        @"OS X Display Arrangement Saver 0.1\n"
+        @"A tool for saving and restoring display arrangement on OS X\n"
+        @"\n"
+        @"Usage:\n"
+        @"  da help - prints this text\n"
+        @"  da list - prints a list of all connected screens\n"
+        @"  da save <path_to_plist> - saves current display arrangement to file\n"
+        @"  da load <path_to_plist> - loads display arrangement from file\n"
+        @"     if <path_to_plist> is not specified - the default used: '~/Desktop/ScreenArrangement.plist'\n"
+        @"\n"
+        @"NOTES\n"
+        @"  Currently this program does not support Y-axis arrangement due to author's laziness.\n"
+        @"  It will arrange all window on the same Y-coordinate.\n"
+        @"  If you want to fix it, feel free to make a pull-request on tool's GitHub repo:\n"
+        @"    https://github.com/oscii/OS-X-Display-Arrangement-Saver\n";
+    printf("%s", [helpText UTF8String]);
 }
 
 void printInfo() {
