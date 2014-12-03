@@ -3,6 +3,8 @@ OS-X-Display-Arrangement-Saver
 
 Simple console tool for saving and restoring display arrangement on OS X.
 
+[Download tool](https://github.com/oscii/OS-X-Display-Arrangement-Saver/releases)
+
 #### Usage 
 
 `da help` - prints help text <br />
