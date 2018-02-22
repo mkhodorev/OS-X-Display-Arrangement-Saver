@@ -172,8 +172,9 @@ void loadArrangement(NSString* savePath) {
             xy = [dict objectForKey:[NSString stringWithFormat:@"%u",displayID]];
         }
         int32_t x = [(NSNumber*)xy[0] intValue];
-//        int32_t y = [(NSNumber*)xy[1] doubleValue];
-        CGConfigureDisplayOrigin(config, displayID, x, 0);  // TODO for my need y-aligning is not necessary
+        int32_t y = [(NSNumber*)xy[1] doubleValue];
+        // NSScreen and CGDisplay use different Y axis ... so invert from one to another.
+        CGConfigureDisplayOrigin(config, displayID, x, -1*y); 
     }
     CGCompleteDisplayConfiguration(config, kCGConfigureForSession);
     printf("Screen arrangement has been loaded\n");
