@@ -25,8 +25,8 @@
 #import <AppKit/AppKit.h>
 #import <IOKit/graphics/IOGraphicsLib.h>
 
-void printHelp();
-void printInfo();
+void printHelp(void);
+void printInfo(void);
 void saveArrangement(NSString* savePath);
 void loadArrangement(NSString* savePath);
 
@@ -98,7 +98,7 @@ int main(int argc, const char * argv[])
 
 void printHelp() {
     NSString* helpText =
-        @"OS X Display Arrangement Saver 0.1\n"
+        @"OS X Display Arrangement Saver 0.2\n"
         @"A tool for saving and restoring display arrangement on OS X\n"
         @"\n"
         @"Usage:\n"
@@ -109,10 +109,12 @@ void printHelp() {
         @"     if <path_to_plist> is not specified - the default used: '~/Desktop/ScreenArrangement.plist'\n"
         @"\n"
         @"NOTES\n"
-        @"  Currently this program does not support Y-axis arrangement due to author's laziness.\n"
-        @"  It will arrange all window on the same Y-coordinate.\n"
-        @"  If you want to fix it, feel free to make a pull-request on tool's GitHub repo:\n"
-        @"    https://github.com/oscii/OS-X-Display-Arrangement-Saver\n";
+        @"  This fixes Y-axis arrangement and includes some work to ensure non-edid displays work, too\n"
+        @"\n"
+        @"  Original authors GitHub repo:\n"
+        @"    https://github.com/ech2/OS-X-Display-Arrangement-Saver\n"
+        @"  Contributor GitHub repo:\n"
+        @"    https://github.com/archetrix/OS-X-Display-Arrangement-Saver\n";
     printf("%s", [helpText UTF8String]);
 }
 
