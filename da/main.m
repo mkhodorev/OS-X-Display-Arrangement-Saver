@@ -195,9 +195,17 @@ CGDirectDisplayID getDisplayID(NSScreen* screen) {
 NSString* getScreenSerial(NSScreen* screen) {
     // In fact, the function returns vendor id concateneted with serial number
     CGDirectDisplayID displayID = getDisplayID(screen);
+    NSString* name;
     NSDictionary *deviceInfo = (__bridge_transfer NSDictionary*) IODisplayCreateInfoDictionary(CGDisplayIOServicePort(displayID), kIODisplayOnlyPreferredName);
     NSData* edid = [deviceInfo objectForKey:@"IODisplayEDID"];
-    NSString* name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
+    if (edid == nil ) {
+        // Use displayID in case display has no EDID information.
+        name = [NSString stringWithFormat:@"%u",displayID];
+    } else {
+        // The function tries to return vendor id concateneted with serial number
+        // See https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#EDID_1.4_data_format
+        name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
+    }
     return name;
 }
 
