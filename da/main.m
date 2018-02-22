@@ -147,14 +147,14 @@ void saveArrangement(NSString* savePath) {
 }
 
 void loadArrangement(NSString* savePath) {
-    NSMutableDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
+    NSDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
     if (dict == nil) {
         printf("Error: Can't load file\n");
     }
     if (![[dict objectForKey:@"About"] isEqualToString:@"ScreenArrangement"]) {
         printf("Error: Wrong .plist file.\n");
     }
-    [dict removeObjectForKey:@"About"];
+    //[dict removeObjectForKey:@"About"];
     if (!checkDisplayAvailability([dict allKeys])) {
         printf("Error: Probably, this configuration file has been made for different display set.\n");
         return;
