@@ -25,8 +25,8 @@
 #import <AppKit/AppKit.h>
 #import <IOKit/graphics/IOGraphicsLib.h>
 
-void printHelp();
-void printInfo();
+void printHelp(void);
+void printInfo(void);
 void saveArrangement(NSString* savePath);
 void loadArrangement(NSString* savePath);
 
@@ -98,7 +98,7 @@ int main(int argc, const char * argv[])
 
 void printHelp() {
     NSString* helpText =
-        @"OS X Display Arrangement Saver 0.1\n"
+        @"OS X Display Arrangement Saver 0.2\n"
         @"A tool for saving and restoring display arrangement on OS X\n"
         @"\n"
         @"Usage:\n"
@@ -109,10 +109,12 @@ void printHelp() {
         @"     if <path_to_plist> is not specified - the default used: '~/Desktop/ScreenArrangement.plist'\n"
         @"\n"
         @"NOTES\n"
-        @"  Currently this program does not support Y-axis arrangement due to author's laziness.\n"
-        @"  It will arrange all window on the same Y-coordinate.\n"
-        @"  If you want to fix it, feel free to make a pull-request on tool's GitHub repo:\n"
-        @"    https://github.com/oscii/OS-X-Display-Arrangement-Saver\n";
+        @"  This fixes Y-axis arrangement and includes some work to ensure non-edid displays work, too\n"
+        @"\n"
+        @"  Original authors GitHub repo:\n"
+        @"    https://github.com/ech2/OS-X-Display-Arrangement-Saver\n"
+        @"  Contributor GitHub repo:\n"
+        @"    https://github.com/archetrix/OS-X-Display-Arrangement-Saver\n";
     printf("%s", [helpText UTF8String]);
 }
 
@@ -147,14 +149,14 @@ void saveArrangement(NSString* savePath) {
 }
 
 void loadArrangement(NSString* savePath) {
-    NSMutableDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
+    NSDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
     if (dict == nil) {
         printf("Error: Can't load file\n");
     }
     if (![[dict objectForKey:@"About"] isEqualToString:@"ScreenArrangement"]) {
         printf("Error: Wrong .plist file.\n");
     }
-    [dict removeObjectForKey:@"About"];
+    //[dict removeObjectForKey:@"About"];
     if (!checkDisplayAvailability([dict allKeys])) {
         printf("Error: Probably, this configuration file has been made for different display set.\n");
         return;
@@ -162,13 +164,19 @@ void loadArrangement(NSString* savePath) {
     
     CGDisplayConfigRef config;
     CGBeginDisplayConfiguration(&config);
+    NSMutableArray* xy ;
     for (NSScreen* screen in [NSScreen screens]) {
         NSString* serial = getScreenSerial(screen);
         CGDirectDisplayID displayID = getDisplayID(screen);
-        NSArray* xy = [dict objectForKey:serial];
+        xy = [dict objectForKey:serial];
+        if (xy == nil) {
+            // Use displayID in case display has no EDID information.
+            xy = [dict objectForKey:[NSString stringWithFormat:@"%u",displayID]];
+        }
         int32_t x = [(NSNumber*)xy[0] intValue];
-//        int32_t y = [(NSNumber*)xy[1] doubleValue];
-        CGConfigureDisplayOrigin(config, displayID, x, 0);  // TODO for my need y-aligning is not necessary
+        int32_t y = [(NSNumber*)xy[1] doubleValue];
+        // NSScreen and CGDisplay use different Y axis ... so invert from one to another.
+        CGConfigureDisplayOrigin(config, displayID, x, -1*y); 
     }
     CGCompleteDisplayConfiguration(config, kCGConfigureForSession);
     printf("Screen arrangement has been loaded\n");
@@ -195,9 +203,17 @@ CGDirectDisplayID getDisplayID(NSScreen* screen) {
 NSString* getScreenSerial(NSScreen* screen) {
     // In fact, the function returns vendor id concateneted with serial number
     CGDirectDisplayID displayID = getDisplayID(screen);
+    NSString* name;
     NSDictionary *deviceInfo = (__bridge_transfer NSDictionary*) IODisplayCreateInfoDictionary(CGDisplayIOServicePort(displayID), kIODisplayOnlyPreferredName);
     NSData* edid = [deviceInfo objectForKey:@"IODisplayEDID"];
-    NSString* name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
+    if (edid == nil ) {
+        // Use displayID in case display has no EDID information.
+        name = [NSString stringWithFormat:@"%u",displayID];
+    } else {
+        // The function tries to return vendor id concateneted with serial number
+        // See https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#EDID_1.4_data_format
+        name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
+    }
     return name;
 }
 

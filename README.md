@@ -15,6 +15,5 @@ For doing it, the tool uses serial numbers for the displays and not the IDs that
 `da load <path_to_plist>` - loads display arrangement from file <br />
 If `<path_to_plist>` is not specified - the default is used: '~/Desktop/ScreenArrangement.plist'
 
-#### Notes
-Currently this program does not support Y-axis arrangement due to author's laziness.
-It will arrange all window on the same Y-coordinate. If you want to fix it, feel free to make a pull-request!
+#### Note
+This fixes Y-axis arrangement and includes some work to ensure non-edid displays work, too
