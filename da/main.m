@@ -162,10 +162,15 @@ void loadArrangement(NSString* savePath) {
     
     CGDisplayConfigRef config;
     CGBeginDisplayConfiguration(&config);
+    NSMutableArray* xy ;
     for (NSScreen* screen in [NSScreen screens]) {
         NSString* serial = getScreenSerial(screen);
         CGDirectDisplayID displayID = getDisplayID(screen);
-        NSArray* xy = [dict objectForKey:serial];
+        xy = [dict objectForKey:serial];
+        if (xy == nil) {
+            // Use displayID in case display has no EDID information.
+            xy = [dict objectForKey:[NSString stringWithFormat:@"%u",displayID]];
+        }
         int32_t x = [(NSNumber*)xy[0] intValue];
 //        int32_t y = [(NSNumber*)xy[1] doubleValue];
         CGConfigureDisplayOrigin(config, displayID, x, 0);  // TODO for my need y-aligning is not necessary
