@@ -25,8 +25,8 @@
 #import <AppKit/AppKit.h>
 #import <IOKit/graphics/IOGraphicsLib.h>
 
-void printHelp(void);
-void printInfo(void);
+void printHelp();
+void printInfo();
 void saveArrangement(NSString* savePath);
 void loadArrangement(NSString* savePath);
 
@@ -34,6 +34,7 @@ bool checkDisplayAvailability(NSArray* displaySerials);
 CGDirectDisplayID getDisplayID(NSScreen* screen);
 NSString* getScreenSerial(NSScreen* screen);
 NSPoint getScreenPosition(NSScreen* screen);
+CGSize getScreenSize(NSScreen* screen);
 
 int main(int argc, const char * argv[])
 {
@@ -98,7 +99,7 @@ int main(int argc, const char * argv[])
 
 void printHelp() {
     NSString* helpText =
-        @"OS X Display Arrangement Saver 0.2\n"
+        @"OS X Display Arrangement Saver 0.1\n"
         @"A tool for saving and restoring display arrangement on OS X\n"
         @"\n"
         @"Usage:\n"
@@ -109,12 +110,10 @@ void printHelp() {
         @"     if <path_to_plist> is not specified - the default used: '~/Desktop/ScreenArrangement.plist'\n"
         @"\n"
         @"NOTES\n"
-        @"  This fixes Y-axis arrangement and includes some work to ensure non-edid displays work, too\n"
-        @"\n"
-        @"  Original authors GitHub repo:\n"
-        @"    https://github.com/ech2/OS-X-Display-Arrangement-Saver\n"
-        @"  Contributor GitHub repo:\n"
-        @"    https://github.com/archetrix/OS-X-Display-Arrangement-Saver\n";
+        @"  Currently this program does not support Y-axis arrangement due to author's laziness.\n"
+        @"  It will arrange all window on the same Y-coordinate.\n"
+        @"  If you want to fix it, feel free to make a pull-request on tool's GitHub repo:\n"
+        @"    https://github.com/oscii/OS-X-Display-Arrangement-Saver\n";
     printf("%s", [helpText UTF8String]);
 }
 
@@ -125,9 +124,11 @@ void printInfo() {
         CGDirectDisplayID screenNumber = getDisplayID(screen);
         NSString* serial = getScreenSerial(screen);
         NSPoint position = getScreenPosition(screen);
+        CGSize screenSize = getScreenSize(screen);
         printf("  Display %li\n", (long)screenNumber);
         printf("    Serial:   %s\n", [serial UTF8String]);
         printf("    Position: {%i, %i}\n", (int)position.x, (int)position.y);
+        printf("    Screen Size: {%f, %f}\n", (double)screenSize.height, (double)screenSize.width);
     }
 }
 
@@ -138,7 +139,9 @@ void saveArrangement(NSString* savePath) {
     for (NSScreen* screen in screens) {
         NSString* serial = getScreenSerial(screen);
         NSPoint position = getScreenPosition(screen);
-        NSArray* a = [NSArray arrayWithObjects: [NSNumber numberWithInt:position.x], [NSNumber numberWithInt: position.y], nil];
+        CGSize screenSize = getScreenSize(screen);
+
+        NSArray* a = [NSArray arrayWithObjects: [NSNumber numberWithFloat:screenSize.height], [NSNumber numberWithFloat:screenSize.width], [NSNumber numberWithInt:position.x], [NSNumber numberWithInt: position.y], nil];
         [dict setObject:a forKey:serial];
     }
     if ([dict writeToFile:[savePath stringByExpandingTildeInPath] atomically: YES]) {
@@ -149,14 +152,14 @@ void saveArrangement(NSString* savePath) {
 }
 
 void loadArrangement(NSString* savePath) {
-    NSDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
+    NSMutableDictionary* dict = [NSDictionary dictionaryWithContentsOfFile:[savePath stringByExpandingTildeInPath]];
     if (dict == nil) {
         printf("Error: Can't load file\n");
     }
     if (![[dict objectForKey:@"About"] isEqualToString:@"ScreenArrangement"]) {
         printf("Error: Wrong .plist file.\n");
     }
-    //[dict removeObjectForKey:@"About"];
+    [dict removeObjectForKey:@"About"];
     if (!checkDisplayAvailability([dict allKeys])) {
         printf("Error: Probably, this configuration file has been made for different display set.\n");
         return;
@@ -164,19 +167,26 @@ void loadArrangement(NSString* savePath) {
     
     CGDisplayConfigRef config;
     CGBeginDisplayConfiguration(&config);
-    NSMutableArray* xy ;
+    
+    int mainHeight = 0;
+    
     for (NSScreen* screen in [NSScreen screens]) {
         NSString* serial = getScreenSerial(screen);
         CGDirectDisplayID displayID = getDisplayID(screen);
-        xy = [dict objectForKey:serial];
-        if (xy == nil) {
-            // Use displayID in case display has no EDID information.
-            xy = [dict objectForKey:[NSString stringWithFormat:@"%u",displayID]];
+        NSArray* scr = [dict objectForKey:serial];
+        float_t height = [(NSNumber*)scr[0] floatValue];
+//        float_t width = [(NSNumber*)scr[1] floatValue];
+        int32_t x = [(NSNumber*)scr[2] intValue];
+        int32_t y = [(NSNumber*)scr[3] intValue];
+        
+        int shift = 0;
+        if(x == 0 && y == 0) {
+            mainHeight = height;
+        } else {
+            shift = mainHeight - height;
         }
-        int32_t x = [(NSNumber*)xy[0] intValue];
-        int32_t y = [(NSNumber*)xy[1] doubleValue];
-        // NSScreen and CGDisplay use different Y axis ... so invert from one to another.
-        CGConfigureDisplayOrigin(config, displayID, x, -1*y); 
+
+        CGConfigureDisplayOrigin(config, displayID, x, shift - y);  // TODO for my need y-aligning is not necessary
     }
     CGCompleteDisplayConfiguration(config, kCGConfigureForSession);
     printf("Screen arrangement has been loaded\n");
@@ -203,17 +213,9 @@ CGDirectDisplayID getDisplayID(NSScreen* screen) {
 NSString* getScreenSerial(NSScreen* screen) {
     // In fact, the function returns vendor id concateneted with serial number
     CGDirectDisplayID displayID = getDisplayID(screen);
-    NSString* name;
     NSDictionary *deviceInfo = (__bridge_transfer NSDictionary*) IODisplayCreateInfoDictionary(CGDisplayIOServicePort(displayID), kIODisplayOnlyPreferredName);
     NSData* edid = [deviceInfo objectForKey:@"IODisplayEDID"];
-    if (edid == nil ) {
-        // Use displayID in case display has no EDID information.
-        name = [NSString stringWithFormat:@"%u",displayID];
-    } else {
-        // The function tries to return vendor id concateneted with serial number
-        // See https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#EDID_1.4_data_format
-        name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
-    }
+    NSString* name = [[edid subdataWithRange:NSMakeRange(10, 6)] hexString];
     return name;
 }
 
@@ -223,5 +225,13 @@ NSPoint getScreenPosition(NSScreen* screen) {
     point.x = frame.origin.x;
     point.y = frame.origin.y;
     return point;
+}
+
+CGSize getScreenSize(NSScreen* screen) {
+    NSRect frame = [screen frame];
+    CGSize size;
+    size.height = frame.size.height;
+    size.width = frame.size.width;
+    return size;
 }
 
